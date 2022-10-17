@@ -397,11 +397,35 @@ public class JdTenantService {
     }
 
     public static void main(String[] args) {
+        创建订单();
+//        查询订单();
+    }
+
+    private static void 查询订单() {
+        String a = "{\t\n" +
+                "\t\"mch_id\":\"1\",\n" +
+                "\t\"out_trade_no\":\"750\",\n" +
+                "\t\"sign\":\"04e68dccc9b4e011b0ccd2ab23733542\"\n" +
+                "}";
+        JSONObject parseObject = JSON.parseObject(a);
+        String asciiSort = PreUtils.getAsciiSort(parseObject);
+        String s = asciiSort + "&sign=" + "04e68dccc9b4e011b0ccd2ab23733542";
+        String encode = Base64.encode(s);
+        String sign = PreUtils.getSign(encode);
+        cn.hutool.json.JSONObject hutoolsJson = new cn.hutool.json.JSONObject(a);
+        hutoolsJson.put("sign", sign);
+        System.out.println(JSON.toJSONString(hutoolsJson));
+        HttpResponse execute = HttpRequest.post("http://103.235.174.176/api/px/payFindStatusByOderId").body(hutoolsJson).execute();
+        String body = execute.body();
+        System.out.println(body);
+    }
+
+    private static void 创建订单() {
         String a = "{\n" +
                 "\t\"mch_id\": \"1\",\n" +
                 "\t\"subject\": \"支付1000元\",\n" +
                 "\t\"body\": \"支付1000元\",\n" +
-                "\t\"out_trade_no\": \"708\",\n" +
+                "\t\"out_trade_no\": \"727\",\n" +
                 "\t\"amount\": \"10.00\",\n" +
                 "\t\"notify_url\": \"http://103.235.174.176/pre/jd/callbackTemp\",\n" +
                 "\t\"timestamp\": \"2014-07-24 03:07:50\",\n" +
@@ -415,11 +439,8 @@ public class JdTenantService {
         String encode = Base64.encode(s);
         String sign = PreUtils.getSign(encode);
         cn.hutool.json.JSONObject hutoolsJson = new cn.hutool.json.JSONObject(a);
-        hutoolsJson.put("sign", "xxx");
-        log.info(JSON.toJSONString(hutoolsJson));
-        HttpResponse execute = HttpRequest.post("http://127.0.0.1:7890/px/createOrder").body(hutoolsJson).execute();
-        String body = execute.body();
-        System.out.println(body);
+        hutoolsJson.put("sign", sign);
+        System.out.println(JSON.toJSONString(hutoolsJson));
     }
 
 
