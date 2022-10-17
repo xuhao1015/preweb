@@ -1,12 +1,16 @@
 package com.xd.pre.modules.sys.jd;
 
+import cn.hutool.core.codec.Base64;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.xd.pre.common.dto.IpDto;
 import com.xd.pre.common.enumcomm.OrderStatusEnum;
@@ -85,7 +89,8 @@ public class JdTenantService {
         log.info("某人登录了msg:[data:{}]", jdTenant.getUsername());
         String userNameAndPassword = jdTenant.getPassword() + jdTenant.getUsername();
         String md5 = PreUtils.getSign(userNameAndPassword);
-        redisTemplate.opsForValue().set(String.format("tenant:%s", md5), JSON.toJSONString(jdTenant));
+//        redisTemplate.opsForValue().set(String.format("tenant:%s", md5), JSON.toJSONString(jdTenant));
+        redisTemplate.opsForValue().set(String.format("tenant:%s", jdTenant.getId() + ""), JSON.toJSONString(jdTenant));
         return R.ok(md5);
     }
 
@@ -253,13 +258,13 @@ public class JdTenantService {
 
 
     public R createOrder(CreateMchOrderReq reqVo) throws Exception {
-        String s = redisTemplate.opsForValue().get(String.format("tenant:%s", reqVo.getSign()));
-        if (StrUtil.isBlank(s)) {
-            return R.error("当前用户没有登录");
+        JSONObject paramDataMap = JSON.parseObject(JSON.toJSONString(reqVo));
+        R r = checkSign(paramDataMap);
+        if (r.getCode() != 0) {
+            return r;
         }
+        JdTenant jdTenant = JSON.parseObject(redisTemplate.opsForValue().get("tenant:" + paramDataMap.getString("mch_id")), JdTenant.class);
         String localIP = redisTemplate.opsForValue().get("服务器地址");
-
-        JdTenant jdTenant = JSON.parseObject(s, JdTenant.class);
         String tradeNo = PreUtils.productOrderId();
         String url = jdTenant.getUrlPre() + tradeNo;
         String sign = PreUtils.getSign(tradeNo);
@@ -309,6 +314,19 @@ public class JdTenantService {
         return R.ok(createOrderRes);
     }
 
+    private boolean checkSign(String reqSign, JSONObject paramDataMap, JdTenant jdTenant) {
+        String userNameAndPassword = jdTenant.getPassword() + jdTenant.getUsername();
+        String secret = PreUtils.getSign(userNameAndPassword);
+        String asciiSort = PreUtils.getAsciiSort(paramDataMap);
+        String signMy = asciiSort + "&sign=" + secret;
+        String encode = Base64.encode(signMy);
+        String signChcek = PreUtils.getSign(encode);
+        if (signChcek.equals(reqSign)) {
+            return true;
+        }
+        return false;
+    }
+
     // 发送消息，destination是发送到的队列，message是待发送的消息
     private void sendMessage(Destination destination, final String message) {
         jmsMessagingTemplate.convertAndSend(destination, message);
@@ -341,9 +359,31 @@ public class JdTenantService {
         return R.ok("修改回调地址成功");
     }
 
+    private R checkSign(JSONObject paramDataMap) {
+        String tenantStr = redisTemplate.opsForValue().get("tenant:" + paramDataMap.getString("mch_id"));
+        if (StrUtil.isBlank(tenantStr)) {
+            return R.error("当前商户数据不存在，请校验后在重试");
+        }
+        JdTenant jdTenant = JSON.parseObject(tenantStr, JdTenant.class);
+        if (StrUtil.isBlank(tenantStr)) {
+            return R.error("当前商户不正确，请校验后在重试");
+        }
+        boolean b = checkSign(paramDataMap.getString("sign"), paramDataMap, jdTenant);
+        if (!b) {
+            log.info("创建订单参数不正确签名不正确");
+            return R.error("签名不正确，请重新签名");
+        } else {
+            return R.ok();
+        }
+
+    }
+
     public R payFindStatusByOderId(PayFindStatusByOderIdVo payFindStatusByOderIdVo) {
-        String s = redisTemplate.opsForValue().get(String.format("tenant:%s", payFindStatusByOderIdVo.getSign()));
-        Assert.isTrue(ObjectUtil.isNotNull(s), "请登录");
+        JSONObject paramDataMap = JSON.parseObject(JSON.toJSONString(payFindStatusByOderIdVo));
+        R r = checkSign(paramDataMap);
+        if (r.getCode() != 0) {
+            return r;
+        }
         JdMchOrder jdMchOrder = jdMchOrdermapper.selectOne(Wrappers.<JdMchOrder>lambdaQuery().
                 eq(JdMchOrder::getOutTradeNo, payFindStatusByOderIdVo.getOut_trade_no()));
         Assert.isTrue(ObjectUtil.isNotNull(jdMchOrder), "订单不存在");
@@ -354,6 +394,32 @@ public class JdTenantService {
                         .pay_url(jdMchOrder.getPayUrl()).subject(jdMchOrder.getSubject()).body(jdMchOrder.getBody()).build();
         log.info("订单号{}，商户查询了订单状态msg:{}", jdMchOrder.getTradeNo(), jdMchOrder.getStatus());
         return R.ok(selectOrderReq);
+    }
+
+    public static void main(String[] args) {
+        String a = "{\n" +
+                "\t\"mch_id\": \"1\",\n" +
+                "\t\"subject\": \"支付1000元\",\n" +
+                "\t\"body\": \"支付1000元\",\n" +
+                "\t\"out_trade_no\": \"708\",\n" +
+                "\t\"amount\": \"10.00\",\n" +
+                "\t\"notify_url\": \"http://103.235.174.176/pre/jd/callbackTemp\",\n" +
+                "\t\"timestamp\": \"2014-07-24 03:07:50\",\n" +
+                "\t\"sign\": \"%s\",\n" +
+                "\t\"client_ip\":\"192.168.2.1\",\n" +
+                "\t\"pass_code\":\"8\"\n" +
+                "}";
+        JSONObject parseObject = JSON.parseObject(a);
+        String asciiSort = PreUtils.getAsciiSort(parseObject);
+        String s = asciiSort + "&sign=" + "04e68dccc9b4e011b0ccd2ab23733542";
+        String encode = Base64.encode(s);
+        String sign = PreUtils.getSign(encode);
+        cn.hutool.json.JSONObject hutoolsJson = new cn.hutool.json.JSONObject(a);
+        hutoolsJson.put("sign", "xxx");
+        log.info(JSON.toJSONString(hutoolsJson));
+        HttpResponse execute = HttpRequest.post("http://127.0.0.1:7890/px/createOrder").body(hutoolsJson).execute();
+        String body = execute.body();
+        System.out.println(body);
     }
 
 

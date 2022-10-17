@@ -21,21 +21,20 @@ public class CreateMchOrderReq {
     private String pass_code;
     @NotBlank(message = "标题不能为空")
     private String subject;
-
+    @NotBlank(message = "标题不能为空")
     private String body;
     @NotBlank(message = "商户订单号不能为空")
     private String out_trade_no;
     @NotBlank(message = "金额不能为空")
     private String amount;
-
     @NotBlank(message = "调用ip不能为空")
     private String client_ip;
-
     @NotBlank(message = "通知地址不能为空")
     private String notify_url;
-
+//    @NotBlank(message = "return_url 通知地址不能为空")
     private String return_url;
     @NotBlank(message = "请求创建订单时间不能为空")
     private String timestamp;
+
 
 }
