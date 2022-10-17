@@ -1,0 +1,11 @@
+server:
+  port: 7890
+# dev 开发环境 prod 线上环境
+spring:
+  application:
+    name: pre
+  profiles:
+    active: pro
+logging:
+  logstash:
+    destination: 110.40.178.29:5044
