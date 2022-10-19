@@ -34,6 +34,7 @@ import okhttp3.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jms.core.JmsMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -395,6 +396,17 @@ public class JdTenantService {
         log.info("订单号{}，商户查询了订单状态msg:{}", jdMchOrder.getTradeNo(), jdMchOrder.getStatus());
         return R.ok(selectOrderReq);
     }
+
+    @Async()
+    public void updateClickTime(String orderId) {
+        try {
+            log.info("订单号:{} 添加点击时间支付数据时间。后续可以用于统计和加黑", orderId);
+            jdMchOrdermapper.updateClickDataTime(orderId, new Date());
+        } catch (Exception e) {
+            log.info("订单号:{}修改订单时间报错:{}", orderId, e.getMessage());
+        }
+    }
+
 
     public static void main(String[] args) {
         创建订单();

@@ -18,6 +18,9 @@ public class PayHtmlController {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+    @Autowired
+    private JdTenantService jdTenantService;
+
 
     @GetMapping("/payHtml")
     public String payH(@RequestParam("orderId") String orderId) {
@@ -26,7 +29,7 @@ public class PayHtmlController {
         String param = redisTemplate.opsForValue().get("阿里支付数据:" + orderId.trim());
         Boolean ifAbsent = redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
         if (ifAbsent) {
-
+            jdTenantService.updateClickTime(orderId);
             redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
             redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
             redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);

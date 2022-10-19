@@ -37,6 +37,8 @@ public class JdTenantController {
 
     @Autowired
     private JdTenantService jdTenantService;
+
+    
     @Resource
     private JdLogMapper jdLogMapper;
 
