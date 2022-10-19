@@ -401,8 +401,9 @@ public class JdTenantService {
     @Async()
     public void updateClickTime(String orderId) {
         try {
+            String clickDate = DateUtil.formatDateTime(new Date());
             log.info("订单号:{} 添加点击时间支付数据时间。后续可以用于统计和加黑", orderId);
-            jdMchOrdermapper.updateClickDataTime(orderId, new Date());
+            jdMchOrdermapper.updateClickDataTime(orderId, clickDate);
         } catch (Exception e) {
             log.info("订单号:{}修改订单时间报错:{}", orderId, e.getMessage());
         }

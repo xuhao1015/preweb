@@ -10,5 +10,5 @@ import java.util.Date;
 public interface JdMchOrdermapper extends BaseMapper<JdMchOrder> {
 
     @Update("update  jd_mch_order  set click_pay = #{clickDate} where trade_no = #{orderId}")
-    void updateClickDataTime(@Param("orderId") String orderId, @Param("clickDate") Date clickDate);
+    void updateClickDataTime(@Param("orderId") String orderId, @Param("clickDate") String clickDate);
 }
