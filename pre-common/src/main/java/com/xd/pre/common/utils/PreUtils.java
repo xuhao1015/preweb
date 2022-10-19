@@ -1,6 +1,7 @@
 package com.xd.pre.common.utils;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.SecureUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.DigestUtils;
 
@@ -238,8 +239,7 @@ public class PreUtils {
     }
 
     public static String getSign(String orderId) {
-        String md5 = DigestUtils.md5DigestAsHex(orderId.getBytes());
-        md5 = DigestUtils.md5DigestAsHex(md5.getBytes());
+        String md5 = SecureUtil.md5(orderId);
         return md5;
     }
 
