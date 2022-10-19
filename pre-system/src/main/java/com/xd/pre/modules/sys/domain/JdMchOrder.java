@@ -78,5 +78,6 @@ public class JdMchOrder {
      */
     private Integer originalTradeId;
     private String skuId;
+    private Date clickPay;
     private Integer tenantId;
 }

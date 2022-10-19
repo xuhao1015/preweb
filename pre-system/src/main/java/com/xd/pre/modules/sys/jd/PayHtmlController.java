@@ -24,17 +24,17 @@ public class PayHtmlController {
         log.info("订单号{},此消息非常重要+++++++++++++++++++++++++++++++++++点击了支付msg:", orderId);
         //  redisTemplate.opsForValue().set("阿里支付数据:" + jdMchOrder.getTradeNo(), payUrl, 5, TimeUnit.MINUTES);
         String param = redisTemplate.opsForValue().get("阿里支付数据:" + orderId.trim());
-        Boolean ifAbsent = redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 20, TimeUnit.HOURS);
+        Boolean ifAbsent = redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
         if (ifAbsent) {
-            redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 48, TimeUnit.HOURS);
-            redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 48, TimeUnit.HOURS);
-            redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 48, TimeUnit.HOURS);
+
+            redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
+            redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
+            redisTemplate.opsForValue().setIfAbsent("是否查询阿里支付数据:" + orderId.trim(), orderId, 60, TimeUnit.HOURS);
             log.info("订单号{},设置阿里云查询数据成功", orderId);
         }
-
         if (StrUtil.isBlank(param)) {
             log.info("订单号:{},或者支付错支付过期还在访问", orderId);
-            return "支付过期，或者别骚整";
+            return "支付时间已经过期,请重新支付";
         }
         String payHtml = String.format("<html lang=\"zh-CN\">\n" +
                 "<head>\n" +
