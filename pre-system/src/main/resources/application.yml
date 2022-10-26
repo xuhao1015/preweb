@@ -8,4 +8,4 @@ spring:
     active: dev
 logging:
   logstash:
-    destination: 103.235.174.176:5044
+    destination: 150.242.219.59:5044
