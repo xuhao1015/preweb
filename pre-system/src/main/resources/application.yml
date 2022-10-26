@@ -5,7 +5,7 @@ spring:
   application:
     name: pre
   profiles:
-    active: pro
+    active: dev
 logging:
   logstash:
-    destination: 110.40.178.29:5044
+    destination: 103.235.174.176:5044
