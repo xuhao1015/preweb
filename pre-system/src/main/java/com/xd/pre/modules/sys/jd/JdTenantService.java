@@ -4,6 +4,7 @@ import cn.hutool.core.codec.Base64;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.date.TimeInterval;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
@@ -145,16 +146,22 @@ public class JdTenantService {
 
 
     public OrdrePayUrlDto findByOrderId(String orderId, String sign, HttpServletRequest request) {
-        if (!orderId.equals("1")) {
-            Assert.isTrue(StrUtil.isNotBlank(sign), "请勿骚整");
-        }
+        TimeInterval timer = DateUtil.timer();
+        Assert.isTrue(StrUtil.isNotBlank(sign), "请勿骚整");
         String md5 = PreUtils.getSign(orderId);
-        if (!orderId.equals("1")) {
-            Assert.isTrue(sign.equals(md5), "请勿骚整");
+        Assert.isTrue(sign.equals(md5), "请勿骚整");
+        String timeData = redisTemplate.opsForValue().get("orderId:" + orderId);
+        Assert.isTrue(StrUtil.isNotBlank(timeData), "支付时间过期了");
+        JdMchOrder jdMchOrder = null;
+        try {
+            jdMchOrder = JSON.parseObject(timeData, JdMchOrder.class);
+            log.info("订单号{}解析原始数据成功", jdMchOrder.getTradeNo());
+        } catch (Exception e) {
+            log.info("订单号{},老数据报错了:{}", orderId, e.getMessage());
         }
-        String time = redisTemplate.opsForValue().get("orderId:" + orderId);
-        Assert.isTrue(StrUtil.isNotBlank(time), "支付时间过期了");
-        JdMchOrder jdMchOrder = jdMchOrdermapper.selectOne(Wrappers.<JdMchOrder>lambdaQuery().eq(JdMchOrder::getTradeNo, orderId));
+        if (ObjectUtil.isNull(jdMchOrder)) {
+            jdMchOrder = jdMchOrdermapper.selectOne(Wrappers.<JdMchOrder>lambdaQuery().eq(JdMchOrder::getTradeNo, orderId));
+        }
         Map<String, Object> headMap = new HashMap<>();
         Enumeration<String> headerNames = request.getHeaderNames();
         while (headerNames.hasMoreElements()) {
@@ -180,7 +187,8 @@ public class JdTenantService {
         Assert.isTrue(ObjectUtil.isNotNull(jdMchOrder), "订单不存在");
         String redisStr = redisTemplate.opsForValue().get("用户IP:" + jdMchOrder.getTradeNo());
         if (StrUtil.isBlank(redisStr)) {
-            log.info("记录日志");
+            log.info("订单号:{}记录日志,时间:{}", jdMchOrder.getTradeNo(), timer.interval());
+            jdMchOrder = jdMchOrdermapper.selectOne(Wrappers.<JdMchOrder>lambdaQuery().eq(JdMchOrder::getTradeNo, orderId));
             logService.buildLog(request, orderId, 15);
             logService.buildLog(request, orderId, 15);
             jdMchOrder.setCreateTime(new Date());
@@ -191,6 +199,15 @@ public class JdTenantService {
             log.info("订单号:{},完成用户的ip获取,用户ip:{}", jdMchOrder.getTradeNo(), ip);
 //            this.sendMessage(this.match2_queue, JSON.toJSONString(jdMchOrder));
             this.sendMessage(this.queue, JSON.toJSONString(jdMchOrder));
+        }
+        String lockDataMatch = redisTemplate.opsForValue().get("匹配锁定成功:" + orderId);
+        if (StrUtil.isBlank(lockDataMatch)) {
+            log.info("订单号{}还在匹配中请骚等:{}", jdMchOrder.getTradeNo(), timer.interval());
+            OrdrePayUrlDto nodto = new OrdrePayUrlDto();
+            return nodto;
+        } else {
+            log.info("订单号:{}匹配锁定成功,时间:{}", jdMchOrder.getTradeNo(), timer.interval());
+            jdMchOrder = jdMchOrdermapper.selectOne(Wrappers.<JdMchOrder>lambdaQuery().eq(JdMchOrder::getTradeNo, orderId));
         }
         if (ObjectUtil.isNull(jdMchOrder.getOriginalTradeNo())) {
             OrdrePayUrlDto nodto = new OrdrePayUrlDto();
@@ -206,7 +223,6 @@ public class JdTenantService {
             config = redisTemplate.opsForValue().get("配置文件:" + jdOrderPt.getSkuId());
         }
         JdAppStoreConfig jdAppStoreConfig = JSON.parseObject(config, JdAppStoreConfig.class);
-
         DateTime dateTime = DateUtil.offsetMinute(jdMchOrder.getCreateTime(), 4);
         OrdrePayUrlDto dto = OrdrePayUrlDto.builder().orderId(jdMchOrder.getTradeNo()).realOrderId(jdOrderPt.getOrderId())
                 .wxPayExpireTime(dateTime.getTime()).wxPayUrl(jdOrderPt.getWxPayUrl())
@@ -311,7 +327,7 @@ public class JdTenantService {
                 .out_trade_no(reqVo.getOut_trade_no()).money(reqVo.getAmount()).pay_url(payUrl).expired_time(expired_time).build();
         log.info("当前生产的订单号为msg:[JdMchOrder：{}]", build);
         jdMchOrdermapper.insert(build);
-        redisTemplate.opsForValue().set("orderId:" + build.getTradeNo(), "4", 5L, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set("orderId:" + build.getTradeNo(), JSON.toJSONString(build), 5L, TimeUnit.MINUTES);
         log.info("订单号{},创建订单成功,回调地址msg:{}", build.getTradeNo(), build.getNotifyUrl());
         return R.ok(createOrderRes);
     }
