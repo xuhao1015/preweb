@@ -445,7 +445,7 @@ public class JdTenantService {
         cn.hutool.json.JSONObject hutoolsJson = new cn.hutool.json.JSONObject(a);
         hutoolsJson.put("sign", sign);
         System.out.println(JSON.toJSONString(hutoolsJson));
-        HttpResponse execute = HttpRequest.post("http://103.235.174.176/api/px/payFindStatusByOderId").body(hutoolsJson).execute();
+        HttpResponse execute = HttpRequest.post("http://103.235.174.139/api/px/payFindStatusByOderId").body(hutoolsJson).execute();
         String body = execute.body();
         System.out.println(body);
     }
@@ -457,7 +457,7 @@ public class JdTenantService {
                 "\t\"body\": \"支付1000元\",\n" +
                 "\t\"out_trade_no\": \"758\",\n" +
                 "\t\"amount\": \"100.00\",\n" +
-                "\t\"notify_url\": \"http://103.235.174.176/pre/jd/callbackTemp\",\n" +
+                "\t\"notify_url\": \"http://103.235.174.139/pre/jd/callbackTemp\",\n" +
                 "\t\"timestamp\": \"2014-07-24 03:07:50\",\n" +
                 "\t\"sign\": \"%s\",\n" +
                 "\t\"client_ip\":\"192.168.2.1\",\n" +
