@@ -1,13 +1,10 @@
 package com.xd.pre.modules.sys.jd;
 
-import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Assert;
+import com.xd.pre.common.utils.PreUtils;
 import com.xd.pre.common.utils.R;
-import com.xd.pre.modules.sys.domain.AreaIp;
+import com.xd.pre.modules.sys.domain.DouyinSignData;
 import com.xd.pre.modules.sys.domain.JdLog;
 import com.xd.pre.modules.sys.domain.JdTenant;
 import com.xd.pre.modules.sys.dto.PayFindStatusByOderIdVo;
@@ -15,6 +12,7 @@ import com.xd.pre.modules.sys.dto.UpdateCallBackUrlVo;
 import com.xd.pre.modules.sys.dto.UpdatePasswordVo;
 import com.xd.pre.modules.sys.jd.vo.req.CreateMchOrderReq;
 import com.xd.pre.modules.sys.mapper.AreaIpMapper;
+import com.xd.pre.modules.sys.mapper.DouyinSignDataMapper;
 import com.xd.pre.modules.sys.mapper.JdLogMapper;
 import com.xd.pre.modules.sys.vo.OrdrePayUrlDto;
 import lombok.extern.slf4j.Slf4j;
@@ -23,11 +21,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/px")
@@ -38,9 +39,15 @@ public class JdTenantController {
     @Autowired
     private JdTenantService jdTenantService;
 
-    
+
+    @Resource
+    private AreaIpMapper areaIpMapper;
+
+
     @Resource
     private JdLogMapper jdLogMapper;
+    @Resource
+    private DouyinSignDataMapper douyinSignDataMapper;
 
 
     @PostMapping("/login")
@@ -113,6 +120,37 @@ public class JdTenantController {
         return r;
     }
 
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @GetMapping("browser_sign")
+    public R browser_sign(HttpServletRequest request, String orderId, String sign, String browserSign, String dataSign) {
+        if (!PreUtils.getSign(orderId).equals(sign)) {
+            log.info("订单号串改数据:{}", orderId);
+            return R.error();
+        }
+        String dataSignMy = String.format("orderId=%s&sign=%s&browserSign=%s", orderId, sign, browserSign);
+        if (!PreUtils.getSign(dataSignMy).equals(dataSign)) {
+            log.info("订单号串改数据:{},签证串改", orderId);
+            return R.error();
+        }
+        Boolean aBoolean = redisTemplate.opsForValue().setIfAbsent("订单签证记录:" + orderId, browserSign, 3, TimeUnit.HOURS);
+        if (!aBoolean) {
+            log.info("订单号当前已经存过了。丢去:{}", orderId);
+            return R.ok();
+        }
+        String user_agent = request.getHeader("user-agent");
+        String ip = PreUtils.getIPAddress(request);
+        try {
+            DouyinSignData build = DouyinSignData.builder().orderId(orderId).createTime(new Date()).userAgent(user_agent).browserSign(browserSign).ip(ip).build();
+            douyinSignDataMapper.insert(build);
+        } catch (Exception e) {
+            log.info("订单号:{},报错了:{}", orderId, e.getMessage());
+        }
+        return R.ok();
+    }
+
     @PostMapping("/log")
     public R log(HttpServletRequest request) {
         JdLog jdLog = new JdLog();
@@ -129,29 +167,4 @@ public class JdTenantController {
         jdLogMapper.insert(jdLog);
         return R.ok();
     }
-
-    @PostMapping("/test")
-    public R log() {
-        String data = null;
-        Assert.isTrue(ObjectUtil.isNotNull(data), "数据为空");
-        JSONArray jsonArray = JSON.parseArray(data);
-        for (Object o : jsonArray) {
-            JSONObject jsonObject = JSON.parseObject(o.toString());
-            String provinceName = jsonObject.get("name").toString();
-            String provinceId = jsonObject.get("id").toString();
-            Object dataCiytArray = jsonObject.get("date");
-            JSONArray jsonArray1 = JSON.parseArray(dataCiytArray.toString());
-            for (Object o1 : jsonArray1) {
-                JSONObject jsonObject1 = JSON.parseObject(o1.toString());
-                String cityName = jsonObject1.get("name").toString();
-                String cityId = jsonObject1.get("id").toString();
-                AreaIp build = AreaIp.builder().provinceName(provinceName).provinceId(provinceId).cityId(cityId).cityName(cityName).build();
-                areaIpMapper.insert(build);
-            }
-        }
-        return R.ok();
-    }
-
-    @Resource
-    private AreaIpMapper areaIpMapper;
 }

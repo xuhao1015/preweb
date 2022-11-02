@@ -48,7 +48,7 @@ public class LogService {
             String user_agent = request.getHeader("user-agent");
             jdLog.setType(step);
             jdLog.setUserAgent(user_agent);
-            String ip = request.getHeader("X-Forwarded-For");
+            String ip = PreUtils.getIPAddress(request);
             jdLog.setIp(ip);
             jdLogMapper.insert(jdLog);
             log.info("日志信息msg:{}", jdLog);
@@ -57,10 +57,6 @@ public class LogService {
         }
     }
 
-    public static void main(String[] args) {
-        String sign = PreUtils.getSign("202204141855553580");
-        System.out.println(sign);
-    }
 
     public JdOrderPt getJdOrderPt(HttpServletRequest servletRequest) {
         String orderId = servletRequest.getParameter("orderId");

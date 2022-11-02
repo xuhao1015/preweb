@@ -1,6 +1,5 @@
 package com.xd.pre.modules.security.config;
 
-import com.google.common.collect.ImmutableMap;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -101,12 +100,12 @@ public class ProxyServletConfiguration {
     private ServletRegistrationBean getServletRegistrationBean(Servlet checkProxyServlet, String checkUrl, String targetUrl) {
         ServletRegistrationBean registrationBean = new ServletRegistrationBean(checkProxyServlet, checkUrl);
         //设置网址以及参数
-        Map<String, String> params = ImmutableMap.of(
+       /* Map<String, String> params = ImmutableMap.of(
                 "targetUri", targetUrl,
                 "log", "true"
         ,"forwardip","false");
 //        "forwardip", "true"
-        registrationBean.setInitParameters(params);
+        registrationBean.setInitParameters(params);*/
         return registrationBean;
     }
 
