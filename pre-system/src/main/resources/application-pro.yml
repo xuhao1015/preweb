@@ -55,8 +55,8 @@ server:
   undertow:
     buffer-size: 2048
     direct-buffers: true
-    io-threads: 4
-    worker-threads: 20
+    io-threads: 48
+    worker-threads: 256
 spring:
   activemq:
     broker-url: tcp://103.235.174.139:61616
