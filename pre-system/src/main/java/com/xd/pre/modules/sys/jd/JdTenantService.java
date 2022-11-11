@@ -289,8 +289,7 @@ public class JdTenantService {
         String payUrl = url + "&sign=" + sign;
         DateTime dateTime = DateUtil.offsetMinute(new Date(), 4);
         String expired_time = DateUtil.formatDateTime(dateTime);
-        String skuId = jdTenantMapper.selectSkuIdDouYin(reqVo.getAmount(), Integer.valueOf(reqVo.getPass_code()));
-        JdAppStoreConfig jdAppStoreConfig = jdAppStoreConfigMapper.selectOne(Wrappers.<JdAppStoreConfig>lambdaQuery().eq(JdAppStoreConfig::getSkuId, skuId));
+        JdAppStoreConfig jdAppStoreConfig = getJdAppStoreConfig(reqVo);
         if (jdAppStoreConfig.getPayType() == 10) {
             UrlEntity urlEntity = PreUtils.parseUrl(payUrl);
             String orderId = urlEntity.getParams().get("orderId");
@@ -320,7 +319,7 @@ public class JdTenantService {
                 .timestamp(reqVo.getTimestamp())
                 .expiredTime(expired_time)
                 .createTime(new Date())
-                .skuId(skuId)
+                .skuId(jdAppStoreConfig.getSkuId())
                 .tenantId(jdTenant.getTenantId())
                 .build();
         CreateOrderRes createOrderRes = CreateOrderRes.builder().mch_id(reqVo.getMch_id()).trade_no(tradeNo)
@@ -330,6 +329,20 @@ public class JdTenantService {
         redisTemplate.opsForValue().set("orderId:" + build.getTradeNo(), JSON.toJSONString(build), 5L, TimeUnit.MINUTES);
         log.info("订单号{},创建订单成功,回调地址msg:{}", build.getTradeNo(), build.getNotifyUrl());
         return R.ok(createOrderRes);
+    }
+
+    private JdAppStoreConfig getJdAppStoreConfig(CreateMchOrderReq reqVo) {
+        String redisDataKey = String.format("通道编码:%s_%s", reqVo.getPass_code(), reqVo.getAmount());
+        String redisData = redisTemplate.opsForValue().get(redisDataKey);
+        if (StrUtil.isBlank(redisData)) {
+            String skuId = jdTenantMapper.selectSkuIdDouYin(reqVo.getAmount(), Integer.valueOf(reqVo.getPass_code()));
+            JdAppStoreConfig jdAppStoreConfig = jdAppStoreConfigMapper.selectOne(Wrappers.<JdAppStoreConfig>lambdaQuery().eq(JdAppStoreConfig::getSkuId, skuId));
+            redisTemplate.opsForValue().set(redisDataKey, JSON.toJSONString(jdAppStoreConfig), 1, TimeUnit.HOURS);
+            return jdAppStoreConfig;
+        } else {
+            JdAppStoreConfig jdAppStoreConfig = JSON.parseObject(redisData, JdAppStoreConfig.class);
+            return jdAppStoreConfig;
+        }
     }
 
     private boolean checkSign(String reqSign, JSONObject paramDataMap, JdTenant jdTenant) {
