@@ -274,7 +274,7 @@ public class JdTenantService {
     }
 
 
-    public R createOrder(CreateMchOrderReq reqVo) throws Exception {
+    public R createOrder(CreateMchOrderReq reqVo) {
         log.info("当前创建订单参数:{}", JSON.toJSONString(reqVo));
         JSONObject paramDataMap = JSON.parseObject(JSON.toJSONString(reqVo));
         R r = checkSign(paramDataMap);
