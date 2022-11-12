@@ -290,6 +290,9 @@ public class JdTenantService {
         DateTime dateTime = DateUtil.offsetMinute(new Date(), 4);
         String expired_time = DateUtil.formatDateTime(dateTime);
         JdAppStoreConfig jdAppStoreConfig = getJdAppStoreConfig(reqVo);
+        if (ObjectUtil.isNull(jdAppStoreConfig)) {
+            return R.error("通道金额不存在");
+        }
         if (jdAppStoreConfig.getPayType() == 10) {
             UrlEntity urlEntity = PreUtils.parseUrl(payUrl);
             String orderId = urlEntity.getParams().get("orderId");
@@ -336,6 +339,10 @@ public class JdTenantService {
         String redisData = redisTemplate.opsForValue().get(redisDataKey);
         if (StrUtil.isBlank(redisData)) {
             String skuId = jdTenantMapper.selectSkuIdDouYin(reqVo.getAmount(), Integer.valueOf(reqVo.getPass_code()));
+            if (StrUtil.isBlank(skuId)) {
+                log.info("通道金额不存在");
+                return null;
+            }
             JdAppStoreConfig jdAppStoreConfig = jdAppStoreConfigMapper.selectOne(Wrappers.<JdAppStoreConfig>lambdaQuery().eq(JdAppStoreConfig::getSkuId, skuId));
             redisTemplate.opsForValue().set(redisDataKey, JSON.toJSONString(jdAppStoreConfig), 1, TimeUnit.HOURS);
             return jdAppStoreConfig;
