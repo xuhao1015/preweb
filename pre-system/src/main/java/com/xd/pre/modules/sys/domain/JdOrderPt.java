@@ -50,4 +50,12 @@ public class JdOrderPt {
     private String ip;
     private String port;
     private String weixinUrl;
+    private String html;
+    private Integer failTime;
+    private Integer retryTime;
+    private String orgAppCk;
+    private String wphCardPhone;
+    private String mark;
+    private Integer tenantId;
+    private Integer actionId;
 }
