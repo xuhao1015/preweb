@@ -7,12 +7,9 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.xd.pre.common.constant.PreConstant;
-import com.xd.pre.modules.sys.domain.JdLog;
-import com.xd.pre.modules.sys.domain.JdMchOrder;
-import com.xd.pre.modules.sys.domain.JdOrderPt;
-import com.xd.pre.modules.sys.mapper.JdLogMapper;
-import com.xd.pre.modules.sys.mapper.JdMchOrdermapper;
-import com.xd.pre.modules.sys.mapper.JdOrderPtMapper;
+import com.xd.pre.modules.sys.domain.*;
+import com.xd.pre.modules.sys.mapper.*;
+import com.xd.pre.modules.sys.util.BuildDouYinUrlUtils;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +37,12 @@ public class Task {
     @Resource
     private JdLogMapper jdLogMapper;
 
+    @Resource
+    private DouyinAppCkMapper douyinAppCkMapper;
+
+    @Resource
+    private DouyinMethodNameParamMapper douyinMethodNameParamMapper;
+
 
     @Scheduled(cron = "0/20 * * * * ?")
     public void budan() {
@@ -57,10 +60,14 @@ public class Task {
                 if (!ifAbsent) {
                     continue;
                 }
-                JdOrderPt jdOrderPt = jdOrderPtMapper.selectById(jdMchOrder.getOriginalTradeId());
+                JdOrderPt jdOrderPt = jdOrderPtMapper.selectOne(Wrappers.<JdOrderPt>lambdaQuery().eq(JdOrderPt::getOrderId, jdMchOrder.getOriginalTradeNo()));
+                BuyRenderParam buyRenderParam = BuyRenderParam.buildBuyRenderParam();
+                DouyinAppCk douyinAppCk = douyinAppCkMapper.selectOne(Wrappers.<DouyinAppCk>lambdaQuery().eq(DouyinAppCk::getUid, jdOrderPt.getPtPin()));
+                DouyinMethodNameParam methodNameDetailInfo = douyinMethodNameParamMapper.selectOne(Wrappers.<DouyinMethodNameParam>lambdaQuery().eq(DouyinMethodNameParam::getMethodName, "detailInfo"));
+                String info_url = BuildDouYinUrlUtils.buildSearchAndPackUrl(JSON.parseObject(JSON.toJSONString(buyRenderParam)), methodNameDetailInfo, douyinAppCk) + "&order_id=" + jdOrderPt.getOrderId();
                 OkHttpClient client = new OkHttpClient();
                 Request request = new Request.Builder()
-                        .url("https://aweme.snssdk.com/aweme/v1/commerce/order/detailInfo/?aid=45465&order_id=" + jdOrderPt.getOrderId().trim())
+                        .url(info_url)
                         .get()
                         .addHeader("Cookie", PreAesUtils.decrypt解密(jdOrderPt.getCurrentCk()))
                         .addHeader("X-Khronos", "1665697911")
@@ -95,7 +102,7 @@ public class Task {
                     log.info("订单号:{},补单没有支付补单成功,没有支付", jdMchOrder.getTradeNo());
                     return;
                 }
-                JSONObject voucher_info = voucher_info_list.get(0);
+                JSONObject voucher_info = voucher_info_list.get(PreConstant.ZERO);
                 String code = voucher_info.getString("code");
                 if (StrUtil.isBlank(code)) {
                     log.info("没有支付");
@@ -144,14 +151,17 @@ public class Task {
     }
 
     public void isDelete(OkHttpClient client, JdMchOrder jdMchOrder, JdOrderPt jdOrderPt) {
+        DouyinAppCk douyinAppCk = douyinAppCkMapper.selectOne(Wrappers.<DouyinAppCk>lambdaQuery().eq(DouyinAppCk::getUid, jdOrderPt.getPtPin()));
         jdOrderPt = jdOrderPtMapper.selectById(jdOrderPt.getId());
+        DouyinMethodNameParam methodNamemethod_postExec = douyinMethodNameParamMapper.selectOne(Wrappers.<DouyinMethodNameParam>lambdaQuery().eq(DouyinMethodNameParam::getMethodName, "postExec"));
+
         if (jdOrderPt.getActionId().equals(100040)) {
             log.info("当前状态为100040。不需要修改", jdMchOrder.getTradeNo());
             return;
         }
         if (jdOrderPt.getActionId().equals(0)) {
             for (int i = 0; i < 2; i++) {
-                Boolean isac100030 = isac100030Zr100040(client, jdMchOrder.getTradeNo(), jdOrderPt.getOrderId(), jdOrderPt.getCurrentCk(), "100030");
+                Boolean isac100030 = isac100030Zr100040(client, jdMchOrder.getTradeNo(), jdOrderPt.getOrderId(), jdOrderPt.getCurrentCk(), "100030", douyinAppCk, methodNamemethod_postExec);
                 if (isac100030) {
                     log.info("设置使用成功msg:{}", jdMchOrder.getTradeNo());
                     log.info("修改订单号的状态为msg:{}", jdMchOrder.getTradeNo(), "100030");
@@ -165,7 +175,8 @@ public class Task {
         jdOrderPt = jdOrderPtMapper.selectById(jdOrderPt.getId());
         if (jdOrderPt.getActionId().equals(100030)) {
             for (int i = 0; i < 2; i++) {
-                Boolean isac100040 = isac100030Zr100040(client, jdMchOrder.getTradeNo(), jdOrderPt.getOrderId(), jdOrderPt.getCurrentCk(), "100040");
+
+                Boolean isac100040 = isac100030Zr100040(client, jdMchOrder.getTradeNo(), jdOrderPt.getOrderId(), jdOrderPt.getCurrentCk(), "100040", douyinAppCk, methodNamemethod_postExec);
                 if (isac100040) {
                     log.info("设置删除成功msg:{}", jdMchOrder.getTradeNo());
                     log.info("修改订单号的状态为msg:{}", jdMchOrder.getTradeNo(), "100040");
@@ -178,13 +189,17 @@ public class Task {
         }
     }
 
-    public Boolean isac100030Zr100040(OkHttpClient client, String tradeNo, String originalTradeNo, String currentCk, String ac) {
+    public Boolean isac100030Zr100040(OkHttpClient client, String tradeNo, String originalTradeNo, String currentCk, String ac, DouyinAppCk douyinAppCk, DouyinMethodNameParam methodNamemethod_postExec) {
         try {
+
+            BuyRenderParam buyRenderParam = BuyRenderParam.buildBuyRenderParam();
+            String postExec_url = BuildDouYinUrlUtils.buildSearchAndPackUrl(JSON.parseObject(JSON.toJSONString(buyRenderParam)), methodNamemethod_postExec, douyinAppCk);
+            String datafromOri = "common_params=%7B%22enter_from%22%3A%22order_list_page%22%2C%22previous_page%22%3A%22mine_tab_order_list__order_homepage%22%7D&action_id=" + ac
+                    + "&business_line=2&trade_type=0&source=1&ecom_appid=7386&lynx_support_version=1&order_id=" + originalTradeNo + "&page_size=15";
             MediaType mediaType = MediaType.parse("application/x-www-form-urlencoded");
-            RequestBody body = RequestBody.create(mediaType, String.format("source=1&business_line=2&app_name=aweme&channel=dy_tiny_juyouliang_dy_and24&device_platform=android&order_id=%s&action_id=%s",
-                    originalTradeNo, ac));
+            RequestBody body = RequestBody.create(mediaType, datafromOri);
             Request request = new Request.Builder()
-                    .url("https://aweme.snssdk.com/aweme/v1/commerce/order/action/postExec/?aid=1128&channel=dy_tiny_juyouliang_dy_and24&device_platform=android")
+                    .url(postExec_url)
                     .post(body)
                     .addHeader("Content-Type", "application/x-www-form-urlencoded")
                     .addHeader("Cookie", PreAesUtils.decrypt解密(currentCk))
