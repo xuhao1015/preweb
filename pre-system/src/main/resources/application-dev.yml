@@ -102,7 +102,7 @@ spring:
         max-idle: 100
         min-idle: 10
     password: 1Q2W3E4Rasdf%
-    port: 6379
+    port: 7001
     timeout: 0ms
 
 uploadFileServerPathPrefix: /Users/lihaodong/Desktop/files
