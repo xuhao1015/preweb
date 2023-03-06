@@ -42,6 +42,7 @@ import javax.annotation.Resource;
 import javax.jms.Destination;
 import javax.jms.Queue;
 import javax.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -334,22 +335,24 @@ public class JdTenantService {
         return R.ok(createOrderRes);
     }
 
+    public static void main(String[] args) {
+        BigDecimal subtract = new BigDecimal("100").subtract(new BigDecimal("0.01"));
+        System.out.println(subtract.toString());
+    }
+
     private JdAppStoreConfig getJdAppStoreConfig(CreateMchOrderReq reqVo) {
-        String redisDataKey = String.format("通道编码:%s_%s", reqVo.getPass_code(), reqVo.getAmount());
-        String redisData = redisTemplate.opsForValue().get(redisDataKey);
-        if (StrUtil.isBlank(redisData)) {
-            String skuId = jdTenantMapper.selectSkuIdDouYin(reqVo.getAmount(), Integer.valueOf(reqVo.getPass_code()));
-            if (StrUtil.isBlank(skuId)) {
-                log.info("通道金额不存在");
-                return null;
-            }
-            JdAppStoreConfig jdAppStoreConfig = jdAppStoreConfigMapper.selectOne(Wrappers.<JdAppStoreConfig>lambdaQuery().eq(JdAppStoreConfig::getSkuId, skuId));
-            redisTemplate.opsForValue().set(redisDataKey, JSON.toJSONString(jdAppStoreConfig), 1, TimeUnit.HOURS);
-            return jdAppStoreConfig;
-        } else {
-            JdAppStoreConfig jdAppStoreConfig = JSON.parseObject(redisData, JdAppStoreConfig.class);
-            return jdAppStoreConfig;
+        String skuId = jdTenantMapper.selectSkuIdDouYin(reqVo.getAmount(), Integer.valueOf(reqVo.getPass_code()));
+        if (StrUtil.isBlank(skuId) && Integer.valueOf(reqVo.getPass_code()) == 21) {
+            log.info("转换通道编码");
+            BigDecimal newAmout = new BigDecimal(reqVo.getAmount()).subtract(new BigDecimal("0.01"));
+            skuId = jdTenantMapper.selectSkuIdDouYin(newAmout.toString(), Integer.valueOf(reqVo.getPass_code()));
         }
+        if (StrUtil.isBlank(skuId)) {
+            log.info("通道金额不存在");
+            return null;
+        }
+        JdAppStoreConfig jdAppStoreConfig = jdAppStoreConfigMapper.selectOne(Wrappers.<JdAppStoreConfig>lambdaQuery().eq(JdAppStoreConfig::getSkuId, skuId));
+        return jdAppStoreConfig;
     }
 
     private boolean checkSign(String reqSign, JSONObject paramDataMap, JdTenant jdTenant) {
@@ -445,11 +448,6 @@ public class JdTenantService {
         }
     }
 
-
-    public static void main(String[] args) {
-        创建订单();
-//        查询订单();
-    }
 
     private static void 查询订单() {
         String a = "{\t\n" +
