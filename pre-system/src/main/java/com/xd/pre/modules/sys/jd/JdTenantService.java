@@ -13,6 +13,7 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.xd.pre.common.constant.PreConstant;
 import com.xd.pre.common.dto.IpDto;
 import com.xd.pre.common.enumcomm.OrderStatusEnum;
 import com.xd.pre.common.utils.IPUtil;
@@ -344,6 +345,7 @@ public class JdTenantService {
         String skuId = jdTenantMapper.selectSkuIdDouYin(reqVo.getAmount(), Integer.valueOf(reqVo.getPass_code()));
         if (StrUtil.isBlank(skuId) && Integer.valueOf(reqVo.getPass_code()) == 21) {
             log.info("转换通道编码");
+            reqVo.setPass_code(PreConstant.TWENTY+"");
             BigDecimal newAmout = new BigDecimal(reqVo.getAmount()).subtract(new BigDecimal("0.01"));
             skuId = jdTenantMapper.selectSkuIdDouYin(newAmout.toString(), Integer.valueOf(reqVo.getPass_code()));
         }
